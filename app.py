@@ -5,7 +5,7 @@ import random
 # === KONFIGURATION ===
 
 # Basis-Ausfallrate pro Sekunde für frische Kämpfer (lambda der Exponentialverteilung)
-BASE_LAMBDA = 0.001303  # 75% Finish-Wahrscheinlichkeit in 5 Minuten (neu berechnen alpha)
+BASE_LAMBDA = 0.00170 # 40% Finish-Wahrscheinlichkeit in 5 Minuten, 70% entspricht: 0.00401
 
 # Fatigue-Faktor pro Sekunde Kampfzeit
 FATIGUE_FACTOR = 0.35  # 35% zusätzliche Erschöpfung bei 5 Minuten
@@ -57,103 +57,55 @@ def round_to_sec(round_number: int) -> float:
     break_seconds = (round_number-2)  * 90 #90 Sekunden Pause pro Runde
     return break_seconds
 
-# === SETUP DER TEAMS ===
+def create_team(name: str,team_size: int):
+    return [{"name": f"{name}-Fighter-{i+1}", "team": name, "fatigue": 0} for i in range(team_size)]
 
-def create_team(name,team_size):
-    return [{"name": f"{name}-{i+1}", "team": name, "fatigue": 0} for i in range(team_size)]
+def simulate_fight(team_size:int):
+    team_a = create_team("Frankfurt",team_size)
+    team_b = create_team("Leipzig",team_size)
+
+    round_number = 1
+    duration_total = 0
+    while team_a and team_b:
+        fighter_a = team_a[0]
+        fighter_b = team_b[0]
+
+        winner, loser, duration, result_reason = simulate_fight(fighter_a, fighter_b)
+
+        st.write(f"--- Runde {round_number} ---")
+        st.write(f"{fighter_a['name']} (Ermüdung: {fighter_a['fatigue']:.1f}s) vs. {fighter_b['name']} (Ermüdung: {fighter_b['fatigue']:.1f}s)")
+        st.write(f"Sieger: {winner['name']} nach {duration:.1f} Sekunden durch {result_reason}")
+        st.write(f"{loser['name']} hat verloren und scheidet aus.")
+        st.write("Kampfdauer in dieser Runde:" ,sec_to_min(duration))
+        st.write("")
+
+        # Verlierer ausscheiden lassen
+        if loser["team"] == "Frankfurt":
+            team_a.pop(0)
+        else:
+            team_b.pop(0)
+
+        # Gewinner bleibt an erster Stelle, wenn er aus FFM oder L kommt
+        if winner["team"] == "Frankfurt":
+            team_a[0] = winner
+        else:
+            team_b[0] = winner
+
+        round_number += 1
+        duration_total += duration
+
+    # === ENDERGEBNIS ===
+
+    winner_team = "Frankfurt" if team_b == [] else "Leipzig"
+    st.write("------------------ENDERGEBNIS------------------")
+    st.write(f"Rundendauer insgesamt:" ,sec_to_min(duration_total))
+    st.write(f"Pausendauer insgesamt:" ,sec_to_min(round_to_sec(round_number)))
+    
+    st.write(f"🏆 Siegerteam: {winner_team}")
 
 
-st.title("🥊 Extreme Fight League – Kampfsimulation")
+st.title("🥊 Extreme Fight League – Kampfsimulationen")
 
 
 if st.button("5 vs 5 Simulation starten"):
-
-    team_a = create_team("Frankfurt",5)
-    team_b = create_team("Leipzig",5)
-
-    round_number = 1
-    duration_total = 0
-    while team_a and team_b:
-        fighter_a = team_a[0]
-        fighter_b = team_b[0]
-
-        winner, loser, duration, result_reason = simulate_fight(fighter_a, fighter_b)
-
-        st.write(f"--- Runde {round_number} ---")
-        st.write(f"{fighter_a['name']} (Ermüdung: {fighter_a['fatigue']:.1f}s) vs. {fighter_b['name']} (Ermüdung: {fighter_b['fatigue']:.1f}s)")
-        st.write(f"Sieger: {winner['name']} nach {duration:.1f} Sekunden durch {result_reason}")
-        st.write(f"{loser['name']} scheidet aus.")
-        st.write("Kampfdauer:" ,sec_to_min(duration))
-        st.write("")
-
-        # Verlierer ausscheiden lassen
-        if loser["team"] == "Frankfurt":
-            team_a.pop(0)
-        else:
-            team_b.pop(0)
-
-        # Gewinner bleibt an erster Stelle, wenn er aus FFM oder L kommt
-        if winner["team"] == "Frankfurt":
-            team_a[0] = winner
-        else:
-            team_b[0] = winner
-
-        round_number += 1
-        duration_total += duration
-
-
-    # === ENDERGEBNIS ===
-
-    winner_team = "Frankfurt" if team_b == [] else "Leipzig"
-    st.write("------------------ENDERGEBNIS------------------")
-    st.write(f"Rundendauer insgesamt:" ,sec_to_min(duration_total))
-    st.write(f"Pausendauer insgesamt:" ,sec_to_min(round_to_sec(round_number)))
-    
-    st.write(f"🏆 Siegerteam: {winner_team}")
-
-
-
-if st.button("8 vs 8 Simulation starten"):
-
-    team_a = create_team("Frankfurt",8)
-    team_b = create_team("Leipzig",8)
-
-    round_number = 1
-    duration_total = 0
-    while team_a and team_b:
-        fighter_a = team_a[0]
-        fighter_b = team_b[0]
-
-        winner, loser, duration, result_reason = simulate_fight(fighter_a, fighter_b)
-
-        st.write(f"--- Runde {round_number} ---")
-        st.write(f"{fighter_a['name']} (Ermüdung: {fighter_a['fatigue']:.1f}s) vs. {fighter_b['name']} (Ermüdung: {fighter_b['fatigue']:.1f}s)")
-        st.write(f"Sieger: {winner['name']} nach {duration:.1f} Sekunden durch {result_reason}")
-        st.write(f"{loser['name']} scheidet aus.")
-        st.write("Kampfdauer:" ,sec_to_min(duration))
-        st.write("")
-
-        # Verlierer ausscheiden lassen
-        if loser["team"] == "Frankfurt":
-            team_a.pop(0)
-        else:
-            team_b.pop(0)
-
-        # Gewinner bleibt an erster Stelle, wenn er aus FFM oder L kommt
-        if winner["team"] == "Frankfurt":
-            team_a[0] = winner
-        else:
-            team_b[0] = winner
-
-        round_number += 1
-        duration_total += duration
-
-
-    # === ENDERGEBNIS ===
-
-    winner_team = "Frankfurt" if team_b == [] else "Leipzig"
-    st.write("------------------ENDERGEBNIS------------------")
-    st.write(f"Rundendauer insgesamt:" ,sec_to_min(duration_total))
-    st.write(f"Pausendauer insgesamt:" ,sec_to_min(round_to_sec(round_number)))
-    
-    st.write(f"🏆 Siegerteam: {winner_team}")
+    simulate_fight(5)

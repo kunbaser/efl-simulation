@@ -60,7 +60,7 @@ def round_to_sec(round_number: int) -> float:
 def create_team(name: str,team_size: int):
     return [{"name": f"{name}-Fighter-{i+1}", "team": name, "fatigue": 0} for i in range(team_size)]
 
-def simulate_fight(team_size:int):
+def execute_simulation(team_size:int):
     team_a = create_team("Frankfurt",team_size)
     team_b = create_team("Leipzig",team_size)
 
@@ -106,6 +106,8 @@ def simulate_fight(team_size:int):
 
 st.title("🥊 Extreme Fight League – Kampfsimulationen")
 
-
+if st.button("4 vs 4 Simulation starten"):
+    execute_simulation(4)
+    
 if st.button("5 vs 5 Simulation starten"):
-    simulate_fight(5)
+    execute_simulation(5)

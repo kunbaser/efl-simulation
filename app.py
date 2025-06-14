@@ -106,10 +106,10 @@ def execute_simulation(team_size:int):
 
 st.title("🥊 Extreme Fight League – Kampfsimulationen")
 
-if st.button("3 vs 3 Simulation starten"):
+if st.button("3 vs 3 starten"):
     execute_simulation(3)
 
-if st.button("4 vs 4 Simulation starten"):
+if st.button("4 vs 4 starten"):
     execute_simulation(4)
     
 if st.button("5 vs 5 starten"):

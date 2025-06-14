@@ -74,7 +74,7 @@ def execute_simulation(team_size:int):
 
         st.write(f"--- Runde {round_number} ---")
         st.write(f"{fighter_a['name']} (Ermüdung: {fighter_a['fatigue']:.1f}s) vs. {fighter_b['name']} (Ermüdung: {fighter_b['fatigue']:.1f}s)")
-        st.write(f"Sieger: {winner['name']} nach {duration:.1f} Sekunden durch {result_reason}")
+        st.write(f"🏆 Sieger: {winner['name']} nach {duration:.1f} Sekunden durch {result_reason}")
         st.write(f"{loser['name']} hat verloren und scheidet aus.")
         st.write("Kampfdauer in dieser Runde:" ,sec_to_min(duration))
         st.write("")
@@ -106,8 +106,27 @@ def execute_simulation(team_size:int):
 
 st.title("🥊 Extreme Fight League – Kampfsimulationen")
 
+if st.button("3 vs 3 Simulation starten"):
+    execute_simulation(3)
+
 if st.button("4 vs 4 Simulation starten"):
     execute_simulation(4)
     
-if st.button("5 vs 5 Simulation starten"):
+if st.button("5 vs 5 starten"):
     execute_simulation(5)
+
+if st.button("6 vs 6 starten"):
+    execute_simulation(6)
+    
+if st.button("7 vs 7 starten"):
+    execute_simulation(7)
+    
+if st.button("8 vs 8 starten"):
+    execute_simulation(8)
+    
+if st.button("9 vs 9 starten"):
+    execute_simulation(9)
+
+if st.button("10 vs 10 starten"):
+    execute_simulation(10)
+

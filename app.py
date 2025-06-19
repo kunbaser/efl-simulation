@@ -1,132 +1,112 @@
-import streamlit as st
 import numpy as np
 import random
 
-# === KONFIGURATION ===
+# ==== KONSTANTEN & KONFIGURATION ====
 
-# Basis-Ausfallrate pro Sekunde für frische Kämpfer (lambda der Exponentialverteilung)
-BASE_LAMBDA = 0.00170 # 40% Finish-Wahrscheinlichkeit in 5 Minuten, 70% entspricht: 0.00401
+MAX_TIME_PER_ENTRY = 300          # Max. Einsatzzeit pro Kampf (5 Minuten)
+TOTAL_FIGHTER_TIME = 600          # Gesamtzeit pro Kämpfer (10 Minuten = 2 Einsätze)
+MAX_ENTRIES_PER_FIGHTER = 2       # Max. Einsätze pro Kämpfer
+FINISH_METHODS = ["KO", "TKO", "Submission", "DQ"]
+LAMBDA_FINISH_RATE = 0.005        # Wahrscheinlichkeitsrate für vorzeitiges Ende (pro Sekunde)
 
-# Fatigue-Faktor pro Sekunde Kampfzeit
-FATIGUE_FACTOR = 0.35  # 35% zusätzliche Erschöpfung bei 5 Minuten
+# ==== KÄMPFER UND TEAMS ERSTELLEN ====
 
-# Kampfzeit in Sekunden (maximale Rundenzeit)
-ROUND_TIME = 300
+def create_fighter(name, team):
+    return {
+        "name": name,
+        "team": team,
+        "einsaetze": 0,
+        "restzeit": TOTAL_FIGHTER_TIME
+    }
 
+def create_team(team_name):
+    return [create_fighter(f"{team_name}-{i+1}", team_name) for i in range(6)]
 
-# === HELPER FUNCTIONS ===
+# ==== EINZELKAMPF-SIMULATION ====
 
-def fatigue_multiplier(duration):
-    "Berechnet den Ermüdungsmultiplikator basierend auf der Dauer des letzten Kampfes."
-    return 1 + (duration / ROUND_TIME) * FATIGUE_FACTOR
+def simulate_efl_fight(fighter_a, fighter_b, lambda_value=LAMBDA_FINISH_RATE):
+    kampfzeit = np.random.exponential(1 / lambda_value)
+    kampfzeit = min(kampfzeit, MAX_TIME_PER_ENTRY)
 
-def simulate_fight(fighter_a, fighter_b):
-    "Simuliert einen Kampf zwischen zwei Kämpfern, ggf. mit Ermüdung."
-    lambda_a = BASE_LAMBDA * fatigue_multiplier(fighter_a["fatigue"])
-    lambda_b = BASE_LAMBDA * fatigue_multiplier(fighter_b["fatigue"])
-
-    # Wahrscheinlichkeit, dass A gewinnt (je höher lambda des Gegners, desto wahrscheinlicher)
-    win_prob_a = lambda_b / (lambda_a + lambda_b)
-
-    # Simuliere ob es einen Finish gibt oder nicht
-    total_lambda = lambda_a + lambda_b
-    finish_time = np.random.exponential(1 / total_lambda)
-
-    if finish_time < ROUND_TIME:
-        winner = fighter_a if random.random() < win_prob_a else fighter_b
+    if kampfzeit < MAX_TIME_PER_ENTRY:
+        method = random.choice(FINISH_METHODS)
+        winner = random.choice([fighter_a, fighter_b])
         loser = fighter_b if winner == fighter_a else fighter_a
-        reason = "Finish (KO/TKO/Submission)"
+
+        loser_time_lost = loser["restzeit"]
+        loser["restzeit"] = 0
+        loser["einsaetze"] += 1
+
+        winner["restzeit"] -= kampfzeit
+        winner["einsaetze"] += 1
     else:
-        # Entscheidung durch Jury (nach Punkten)
-        winner = fighter_a if random.random() < 0.5 else fighter_b
-        loser = fighter_b if winner == fighter_a else fighter_a
-        finish_time = ROUND_TIME
-        reason = "Decision (Jury)"
+        method = "Time expired"
+        winner = None
+        loser = None
+        fighter_a["restzeit"] -= kampfzeit
+        fighter_b["restzeit"] -= kampfzeit
+        fighter_a["einsaetze"] += 1
+        fighter_b["einsaetze"] += 1
+        loser_time_lost = 0
 
-    # Ermüdung erhöhen beim Sieger
-    winner["fatigue"] += finish_time
+    return {
+        "dauer": kampfzeit,
+        "methode": method,
+        "winner": winner["name"] if winner else "Unentschieden",
+        "loser": loser["name"] if loser else "—",
+        "zeit_abgezogen": loser_time_lost,
+        "fighter_a_rest": fighter_a["restzeit"],
+        "fighter_b_rest": fighter_b["restzeit"]
+    }
 
-    return winner, loser, finish_time, reason
+# ==== HILFSFUNKTIONEN ====
 
-def sec_to_min(seconds: float) -> str:
-    minutes = int(seconds) // 60
-    remaining_seconds = seconds % 60
-    return f"{minutes} Minuten und {remaining_seconds:.0f} Sekunden"
+def get_available_fighter(team):
+    return [f for f in team if f["einsaetze"] < MAX_ENTRIES_PER_FIGHTER and f["restzeit"] > 0]
 
-def round_to_sec(round_number: int) -> float:
-    break_seconds = (round_number-2)  * 90 #90 Sekunden Pause pro Runde
-    return break_seconds
+def get_team_time_left(team):
+    return sum(f["restzeit"] for f in team)
 
-def create_team(name: str,team_size: int):
-    return [{"name": f"{name}-Fighter-{i+1}", "team": name, "fatigue": 0} for i in range(team_size)]
+# ==== TEAMKAMPF DURCHFÜHREN ====
 
-def execute_simulation(team_size:int):
-    team_a = create_team("Frankfurt",team_size)
-    team_b = create_team("Leipzig",team_size)
+team_ffm = create_team("FFM")
+team_lei = create_team("LEI")
 
-    round_number = 1
-    duration_total = 0
-    while team_a and team_b:
-        fighter_a = team_a[0]
-        fighter_b = team_b[0]
+rounds = 1
 
-        winner, loser, duration, result_reason = simulate_fight(fighter_a, fighter_b)
+while get_team_time_left(team_ffm) > 0 and get_team_time_left(team_lei) > 0:
+    available_ffm = get_available_fighter(team_ffm)
+    available_lei = get_available_fighter(team_lei)
 
-        st.write(f"--- Runde {round_number} ---")
-        st.write(f"{fighter_a['name']} (Ermüdung: {fighter_a['fatigue']:.1f}s) vs. {fighter_b['name']} (Ermüdung: {fighter_b['fatigue']:.1f}s)")
-        st.write(f"🏆 Sieger: {winner['name']} nach {duration:.1f} Sekunden durch {result_reason}")
-        st.write(f"{loser['name']} hat verloren und scheidet aus.")
-        st.write("Kampfdauer in dieser Runde:" ,sec_to_min(duration))
-        st.write("")
+    if not available_ffm or not available_lei:
+        break  # kein einsatzfähiger Kämpfer mehr verfügbar
 
-        # Verlierer ausscheiden lassen
-        if loser["team"] == "Frankfurt":
-            team_a.pop(0)
-        else:
-            team_b.pop(0)
+    fighter_a = random.choice(available_ffm)
+    fighter_b = random.choice(available_lei)
 
-        # Gewinner bleibt an erster Stelle, wenn er aus FFM oder L kommt
-        if winner["team"] == "Frankfurt":
-            team_a[0] = winner
-        else:
-            team_b[0] = winner
+    result = simulate_efl_fight(fighter_a, fighter_b)
 
-        round_number += 1
-        duration_total += duration
+    print(f"--- Runde {rounds} ---")
+    print(f"{fighter_a['name']} vs. {fighter_b['name']}")
+    print(f"Sieger: {result['winner']} durch {result['methode']} in {result['dauer']:.1f} Sekunden")
+    print(f"Restzeit {fighter_a['name']}: {result['fighter_a_rest']:.0f}s")
+    print(f"Restzeit {fighter_b['name']}: {result['fighter_b_rest']:.0f}s")
+    print(f"Teamzeit FFM: {get_team_time_left(team_ffm):.0f}s | LEI: {get_team_time_left(team_lei):.0f}s\n")
 
-    # === ENDERGEBNIS ===
+    rounds += 1
 
-    winner_team = "Frankfurt" if team_b == [] else "Leipzig"
-    st.write("------------------ENDERGEBNIS------------------")
-    st.write(f"Rundendauer insgesamt:" ,sec_to_min(duration_total))
-    st.write(f"Pausendauer insgesamt:" ,sec_to_min(round_to_sec(round_number)))
-    
-    st.write(f"🏆 Siegerteam: {winner_team}")
+# ==== ERGEBNISAUSWERTUNG ====
 
+ffm_time = get_team_time_left(team_ffm)
+lei_time = get_team_time_left(team_lei)
 
-st.title("🥊 Extreme Fight League – Kampfsimulationen")
+if ffm_time == 0 and lei_time == 0:
+    result_message = "Unentschieden – beide Teams haben ihr Zeitkontingent erschöpft."
+elif ffm_time == 0:
+    result_message = "🏆 Team LEI gewinnt – Team FFM hat keine Zeit mehr."
+elif lei_time == 0:
+    result_message = "🏆 Team FFM gewinnt – Team LEI hat keine Zeit mehr."
+else:
+    result_message = "❗ Kampf wurde technisch beendet, obwohl beide Teams noch Zeit hatten."
 
-if st.button("3 vs 3 starten"):
-    execute_simulation(3)
-
-if st.button("4 vs 4 starten"):
-    execute_simulation(4)
-    
-if st.button("5 vs 5 starten"):
-    execute_simulation(5)
-
-if st.button("6 vs 6 starten"):
-    execute_simulation(6)
-    
-if st.button("7 vs 7 starten"):
-    execute_simulation(7)
-    
-if st.button("8 vs 8 starten"):
-    execute_simulation(8)
-    
-if st.button("9 vs 9 starten"):
-    execute_simulation(9)
-
-if st.button("10 vs 10 starten"):
-    execute_simulation(10)
-
+print(result_message)
